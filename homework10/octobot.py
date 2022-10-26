@@ -265,11 +265,19 @@ def update_subject_deadline(message):
             message.chat.id, "Это не целое число. Введите целое число", reply_markup=None)
         bot.register_next_step_handler(info, update_subject_deadline)
         return
-    deadline_dict[message.chat.id] = number
-    info = bot.send_message(message.chat.id,
-        "Введите новую дату дедлайна в формате 01/01/00 (ДД/ММ/ГГ)", reply_markup=None)
-    bot.register_next_step_handler(info, add_new_deadline)
-    return
+
+    if find_subject_deadline(subject_dict[message.chat.id],num):
+        deadline_dict[message.chat.id] = num
+        info = bot.send_message(message.chat.id,
+            "Введите новую дату дедлайна в формате 01/01/00 (ДД/ММ/ГГ)", reply_markup=None)
+        bot.register_next_step_handler(info, add_new_deadline)
+        return
+    else:
+        info = bot.send_message(message.chat.id,
+            "Такого дедлайна ещё нет, введите существующий", reply_markup=None)
+        bot.register_next_step_handler(info, update_subject_deadline)
+        return
+
 
 def add_new_deadline(message):
     """Добавляем информацию о новом дедлайне предмета в таблицу"""
@@ -311,7 +319,7 @@ def add_new_deadline(message):
     else:  # если нужно изменить существующий дедлайн
         worksheet.update_cell(cell_row, current_num_of_deadline+2, message.text)
         deadline_dict[message.chat.id] = None  # обнуляем переменную
-        bot.send_message(message.chat.id, "Дедлайн исправлен\nНомер дедлайна " + worksheet.cell(1, cell_col).value,)
+        bot.send_message(message.chat.id, "Дедлайн исправлен\nНомер дедлайна " + str(current_num_of_deadline),)
         start(message)
         return
 
@@ -364,5 +372,23 @@ def find_subject_row(subject_name):
         cell_row = cell_row + 1
         cell_val = worksheet.cell(cell_row, cell_col).value
     return False, cell_row  # не нашли предмет
+
+def find_subject_deadline(subject_name, deadline_number):
+    """Находим колонку дедлайна предмета в таблице"""
+    worksheet, _, _ = access_current_sheet()
+    cell_row = 1
+    cell_col = 1
+    cell_val = worksheet.cell(cell_row, cell_col).value
+    while cell_val is not None:
+        if cell_val.upper() == subject_name.upper():
+            for num_col in range(3, deadline_number+2):
+                if worksheet.cell(cell_row, num_col).value is None:
+                    return False
+
+            return True  # нашли дедлайн
+
+        cell_row = cell_row + 1
+        cell_val = worksheet.cell(cell_row, cell_col).value
+    return False  # не нашли
 
 bot.infinity_polling()
